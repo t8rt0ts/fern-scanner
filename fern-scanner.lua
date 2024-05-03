@@ -38,7 +38,7 @@ end
 --1-254 = literal numbers 1-254 (used with the biomes.json metadata path)
 --255 = do 255 + the next byte (recursively if the next byte is also 255)
 local function readDat(path,cX,cZ)
-    if type("path") ~= "string" then error("No path provided") end
+    if type(path) ~= "string" then error("No path provided") end
     if not fs.exists(path) then
         local file = fs.open(path,"w+")
         file.write(string.rep(string.char(0),16384))
@@ -56,7 +56,7 @@ local function readDat(path,cX,cZ)
         local num,char = 0,0
         repeat --read until not hitting 255
             char = file.read()
-            num = num * 255 + char
+            num = num + char
         until char ~= 255
         file.close()
         return num
@@ -66,4 +66,42 @@ local function readDat(path,cX,cZ)
     local data = file.readAll()
     file.close()
     return data
+end
+
+local function writeDat(path,cX,cZ,biomeOrNum)
+    if type(path) ~= "string" then error("No path provided") end
+    if not tonumber(cX) or not tonumber(cZ) then error("No chunk coordinates provided") end
+    if not fs.exists(path) then --Filling out default file
+        local file = fs.open(path,"w+")
+        file.write(string.rep(string.char(0),16384))
+        file.close()
+    end
+    if type(biomeOrNum) == "string" then biomeOrNum = biomeToNum(biomeOrNum) --If string, tries to convert into number, registering the biome if necessary
+    elseif type(biomeOrNum) ~= "number" or not numToBiome(biomeOrNum) then error("Invalid biome provided") end --If not a number or not a valid biome, errors
+    local file = fs.open(path,"rb")
+    local index = (tonumber(cX)*128) + tonumber(cZ)
+    local str = file.read(index) --If there are no 255s, this is all the data until the data we want to read
+    _,matches = str:gsub(string.char(255),"")
+    while matches > 0 do --eating up extra bytes to account for the extra bytes added by each 255
+        local char = file.read()
+        str = str .. char
+        if char ~= 255 then matches = matches - 1 end --If 255, keep going
+    end
+    --Adding the new biome num
+    while biomeOrNum >= 255 do
+        str = str .. string.char(255)
+        biomeOrNum = biomeOrNum - 255
+    end
+    str = str .. string.char(biomeOrNum)
+    --clearing out the original dat from the file buffer
+    local char
+    repeat
+        char = file.read()
+    until char ~= 255
+    --Adding the rest of the .dat to the file
+    str = str .. file.readAll()
+    file.close()
+    local file = fs.open(path,"w+")
+    file.write(str)
+    file.close()
 end
