@@ -1,4 +1,5 @@
 BIOME_METADATA_PATH = "biomes.json"
+REGION_METADATA_PATH = "region_assignment.json"
 --Turtles store their own biome numbers so they are less reliant on a central computer
 local function biomeToNum(biome)
     if type(biome) ~= "string" then error("Biome id must be a string") end
@@ -105,4 +106,52 @@ local function writeDat(path,cX,cZ,biomeOrNum)
     file.write(str)
     file.close()
 end
-return {BIOME_METADATA_PATH=BIOME_METADATA_PATH,biomeToNum=biomeToNum,numToBiome=numToBiome,readDat=readDat,writeDat=writeDat}
+
+--Drew all this out, hopefully this is the good formula
+local function getNextRegion(tX,tZ)
+    if tX+tZ < 0 then
+        if tX - tZ > 0 then return tX - 1,tZ
+        else return tX, tZ + 1 end
+    else
+        if tX - tZ < 0 then return tX + 1, tZ
+        else return tX, tZ - 1 end
+    end
+end
+
+--turtleID = id of the computer setting the region
+--region = the {x,z} data values of the region.
+local function setRegionAssignment(turtleID,region)
+    if type(region) ~= "table" or not string.match(textutils.serialiseJSON(region) or "","^%[%-?%d+,%-?%d+%]$") or not tonumber(turtleID) then return false end
+    local region_data = {}
+    if fs.exists(REGION_METADATA_PATH) then 
+        local file = fs.open(REGION_METADATA_PATH,"r")
+        region_data = textutils.unserialiseJSON(file.readAll()) or {}
+        file.close()
+    end
+    region_data[textutils.serialiseJSON(region)] = tonumber(turtleID)
+    local file = fs.open(REGION_METADATA_PATH,"w+")
+    file.write(textutils.serialiseJSON(region_data))
+    file.close()
+    return true
+end
+--Gets the region assigned to a specific turtle
+local function getRegionAssignment(turtleID)
+    if not tonumber(turtleID) then error("must provide a turtle id") end
+    local region_data = {}
+    if fs.exists(REGION_METADATA_PATH) then 
+        local file = fs.open(REGION_METADATA_PATH,"r")
+        region_data = textutils.unserialiseJSON(file.readAll()) or {}
+        file.close()
+    end
+    local tX,tZ = 0,0
+    while true do
+        local key = string.format("[%d,%d]",tX,tZ)
+        if region_data[key] == turtleID then return {tX,tZ}
+        elseif not region_data[key] then
+            setRegionAssignment(turtleID,{tX,tZ})
+            return {tX,tZ}
+        end
+        tX,tZ = getNextRegion(tX,tZ)
+    end
+end
+return {BIOME_METADATA_PATH=BIOME_METADATA_PATH, biomeToNum=biomeToNum, numToBiome=numToBiome, readDat=readDat, writeDat=writeDat, getRegionAssignment=getRegionAssignment}
