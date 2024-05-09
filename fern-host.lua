@@ -46,5 +46,6 @@ local function handle_messages(sender,protocol,message)
         if type(message.biome) ~= "string" then ss_send(sender,"error",{err="invalid_biome",protocol=protocol,message=message}) end
         local path = getRegionPath(tonumber(chunk[1]),tonumber(chunk[2]))
         fern_data.writeDat(path,chunk[1],chunk[2],message.biome)
+        ss_send(sender,"data_success",message.biome)
     end
-end      
+end
