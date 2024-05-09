@@ -47,5 +47,8 @@ local function handle_messages(sender,protocol,message)
         local path = getRegionPath(tonumber(chunk[1]),tonumber(chunk[2]))
         fern_data.writeDat(path,chunk[1],chunk[2],message.biome)
         ss_send(sender,"data_success",message.biome)
+    elseif protocol == "synchronize" then
+        --TODO: fill out
+        ss_send(sender,"synchronize_response","cod")
     end
-end
+end      
