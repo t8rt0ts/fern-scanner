@@ -39,16 +39,16 @@ local function handle_messages(sender,protocol,message)
         --Invalid message type error
         if type(message) ~= "table" or type(message.chunk) ~= "table" or not tonumber(chunk[1]) or not tonumber(chunk[2]) then ss_send(sender,"error",{err="invalid_message",protocol=protocol,message=message}) end
         local chunk = message.chunk
-        local region = {math.floor(tonumber(chunk[1])/256),math.floor(tonumber(chunk[2])/256)}
+        local region = {math.floor(tonumber(chunk[1])/128),math.floor(tonumber(chunk[2])/128)}
         --If the turtle does not have permission to edit that region then error
         if tonumber(fern_data.getRegionAssignment(region)) ~= sender then ss_send(sender,"error",{err="invalid_region",protocol=protocol,message=message}) end
         --If no biome was sent or a non-string biome was sent then error
         if type(message.biome) ~= "string" then ss_send(sender,"error",{err="invalid_biome",protocol=protocol,message=message}) end
         local path = getRegionPath(tonumber(chunk[1]),tonumber(chunk[2]))
-        fern_data.writeDat(path,chunk[1],chunk[2],message.biome)
+        fern_data.writeDat(path,chunk[1]%128,chunk[2]%128,message.biome)
         ss_send(sender,"data_success",message.biome)
     elseif protocol == "synchronize" then
         --TODO: fill out
         ss_send(sender,"synchronize_response","cod")
     end
-end      
+end
