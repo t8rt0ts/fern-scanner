@@ -3,7 +3,7 @@ local CHUNK_LIST = {}
 local TURTLE
 local HOST
 local REG_X,REG_Z,REGION
-
+local data_send_queue
 
 
 
@@ -219,8 +219,7 @@ REG_X,REG_Z,REGION = requireRegion()
 --Gets the chunk list of chunks needed to explore
 local function getChunkList()
     if not fs.exists(REGION) then error("No region file") end
-    local data = fern_data.readDat(REGION)
-    local file = fs.open(REGION,"rb")
+    local file = fs.open("region/"..REGION,"rb")
     local chunkList = {}
     --region file
     for x=0,127 do
@@ -243,5 +242,22 @@ local function getChunkList()
     end
     return chunkList
 end
-
 CHUNK_LIST = getChunkList()
+
+local function synchronize_data()
+    local data = fern_data.readDat(REGION)
+    local file = fs.open(fern_data.BIOME_METADATA_PATH,"r")
+    local metadata = textutils.unserialiseJSON(file.readAll()) or {}
+    file.close()
+    local _,__,message = ss_send(HOST,"synchronize",{data=data,metadata=metadata},"synchronize_response")
+    if type(message) == "table" and message.sync then
+        if type(message.data) == "string" and type(message.metadata) == table then
+            local file = fs.open(fern_data.BIOME_METADATA_PATH,"w+")
+            file.write(textutils.serialiseJSON(message.metadata))
+            file.close()
+            local file = fs.open("region/"..REGION,"w+")
+            file.write(message.data)
+            file.close()
+        end
+    end
+end
