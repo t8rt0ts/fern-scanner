@@ -1,4 +1,11 @@
 local fern_data = require("fern-data")
+local CHUNK_LIST = {}
+local TURTLE
+local HOST
+local REG_X,REG_Z,REGION
+
+
+
 
 --Rot: 0=N,1=E,2=S,3=W
 local function Turtle(x,y,z,rot)
@@ -153,5 +160,88 @@ local function Turtle(x,y,z,rot)
         if not tonumber(cX) or not tonumber(cZ) then return false end
         return self:moveToPos(cX*16,nil,cZ*16)
     end
+    function turt:openRednet()
+        self:equipItem("computercraft:wireless_modem_advanced")
+        peripheral.find("modem",rednet.open)
+        return rednet.isOpen()
+    end
+    function turt:getBiome()
+        self:equipItem("advancedperipherals:environment_detector")
+        local envDet = peripheral.find("environmentDetector")
+        if not envDet then error("No environment detector found") end
+        return envDet.getBiome()
+    end
     return turt
 end
+
+TURTLE = Turtle()
+if not TURTLE:checkNeededItems() then error("Lacking items to start") end
+assert(TURTLE:openRednet())
+HOST = assert(rednet.lookup("fern-scanner-host"),"No host found")
+
+
+
+local function ss_receive()
+    TURTLE:openRednet()
+    --@2m80_
+    
+    return sender, protocol, message --Just like rednet?
+end
+
+local function ss_send(target,protocol,message,response_protocol)
+    TURTLE:openRednet()
+    --@2m80_
+    if response_protocol then
+        local s,p,m = ss_receive()
+        while s ~= target or p ~= response_protocol do
+            s,p,m = ss_receive()
+            if s == target and p == "error" then error(message) end
+        end
+        return s,p,m
+    end
+    return success --Should include?
+end
+
+local function requireRegion()
+    while not fs.isDir("region") or #fs.list("region") <= 0 do
+        local _,__,message = ss_send(HOST,"get_region","","region_assignment")
+        if type(message) == "table" and #message == 2 and tonumber(message[1]) and tonumber(message[2]) then
+            fern_data.readDat(string.format("region/%d_%d.dat",tonumber(message[1]),tonumber(message[2])),0,0)
+        end
+    end
+    local region = assert(fs.list("region")[1],"failed to get region")
+    local rX,rZ = region:match("(-?%d+)_(-?%d+)")
+    rX,rZ = assert(tonumber(rX)),assert(tonumber(rZ))
+    return rX,rZ,region
+end
+REG_X,REG_Z,REGION = requireRegion()
+
+--Gets the chunk list of chunks needed to explore
+local function getChunkList()
+    if not fs.exists(REGION) then error("No region file") end
+    local data = fern_data.readDat(REGION)
+    local file = fs.open(REGION,"rb")
+    local chunkList = {}
+    --region file
+    for x=0,127 do
+        local row = {}
+        for z=0,127 do
+            local char = file.read()
+            if not char then error("invalid region file") end --If the file doesnt contain all 16384 chunks, error
+            if char == 0 then table.insert(z,{REG_X + x,REG_Z+z}) --If chunk isnt filled out yet, add to list
+            elseif char == 256 then --If variable char, continue eating bytes until you are at the next char
+                repeat
+                    char = file.read()
+                until char ~= 256
+            end
+        end
+        local lb,ub,step = 1,#row,-1
+        if x%2 == 0 then lb,ub,step = #row,1,-1 end
+        for i=lb,ub,step do
+            table.insert(chunkList,row[i])
+        end
+    end
+    return chunkList
+end
+
+CHUNK_LIST = getChunkList()
