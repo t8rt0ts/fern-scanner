@@ -71,7 +71,7 @@ local function Turtle(x,y,z,rot)
         end
     end
     function turt:refuel()
-        if turtle.getFuelLimit() - turtle.getFuelLevel() <= 2000 then return turtle.getFuelLevel() end
+        if turtle.getFuelLimit() - turtle.getFuelLevel() <= 3000 then return turtle.getFuelLevel() end
         for i=1,16 do
             turtle.select(i)
             if turtle.refuel(0) then
