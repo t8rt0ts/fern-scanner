@@ -135,14 +135,22 @@ local function setRegionAssignment(turtleID,region)
     return true
 end
 --Gets the region assigned to a specific turtle
+--If no turtleID provided, returns the entire region assignment data as a table
+--If turtleID provided as a region (json string or table) then it tries to return the turtleID for that region
+--Otherwise, returns the region corresponding to the turtle id
 local function getRegionAssignment(turtleID)
-    if not tonumber(turtleID) then error("must provide a turtle id") end
     local region_data = {}
     if fs.exists(REGION_METADATA_PATH) then 
         local file = fs.open(REGION_METADATA_PATH,"r")
         region_data = textutils.unserialiseJSON(file.readAll()) or {}
         file.close()
     end
+    if not turtleID then return region_data
+    elseif type(turtleID) == "table" or type(turtleID) == "string" then
+        if region_data[turtleID] then return region_data[turtleID] end
+        return
+    end
+    if not tonumber(turtleID) then error("Invalid arguments") end
     local tX,tZ = 0,0
     while true do
         local key = string.format("[%d,%d]",tX,tZ)
@@ -154,4 +162,5 @@ local function getRegionAssignment(turtleID)
         tX,tZ = getNextRegion(tX,tZ)
     end
 end
+
 return {BIOME_METADATA_PATH=BIOME_METADATA_PATH, biomeToNum=biomeToNum, numToBiome=numToBiome, readDat=readDat, writeDat=writeDat, getRegionAssignment=getRegionAssignment}
