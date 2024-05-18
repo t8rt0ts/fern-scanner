@@ -300,3 +300,5 @@ local function main()
     end
     synchronize_data()
 end
+
+main()
