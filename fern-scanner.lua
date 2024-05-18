@@ -163,13 +163,30 @@ local function Turtle(x,y,z,rot)
     function turt:openRednet()
         self:equipItem("computercraft:wireless_modem_advanced")
         peripheral.find("modem",rednet.open)
-        return rednet.isOpen()
+        local s = rednet.isOpen()
+        local _,r = pcall(function() fs.list("region")[1] end)
+        if s then pcall(function() rednet.host("fern-scanner-turtle",r or ""..os.getComputerID()) end) end
+        return s
     end
     function turt:getBiome()
         self:equipItem("advancedperipherals:environment_detector")
         local envDet = peripheral.find("environmentDetector")
         if not envDet then error("No environment detector found") end
         return envDet.getBiome()
+    end
+    function turt:getChunk()
+        return {math.floor(self.x/16),math.floor(self.z/16)}
+    end
+    function turt:diagnostics()
+        self:openRednet()
+        local pos = {gps.locate()} --gps locate pos
+        local ipos = {self.x,self.y,self.z} --What the turtle thinks its at
+        local fuel = turtle.getFuelLevel()
+        local items = {}
+        for i=1,16 do
+            items[i] = turtle.getItemDetail(i)
+        end
+        return {pos=pos,fuel=fuel,items=items,ipos=ipos}
     end
     return turt
 end
@@ -179,22 +196,29 @@ if not TURTLE:checkNeededItems() then error("Lacking items to start") end
 assert(TURTLE:openRednet())
 HOST = assert(rednet.lookup("fern-scanner-host"),"No host found")
 
+local ss_receive,ss_send
 
-
-local function ss_receive()
+ss_receive = function()
     TURTLE:openRednet()
     --@2m80_
-    
+    local sender,protocol,message = rednet.receive() --temporary solution
+    if protocol == "ping" then
+        ss_send(s,"pong",TURTLE:diagnostics())
+    end
     return sender, protocol, message --Just like rednet?
 end
 
-local function ss_send(target,protocol,message,response_protocol)
+ss_send = function(target,protocol,message,response_protocol)
     TURTLE:openRednet()
+    rednet.send(target,protocol,message) --temporary solution
     --@2m80_
     if response_protocol then
         local s,p,m = ss_receive()
         while s ~= target or p ~= response_protocol do
             s,p,m = ss_receive()
+            if p == "ping" then
+                ss_send(s,"pong",TURTLE:diagnostics())
+            end
             if s == target and p == "error" then error(message) end
         end
         return s,p,m
@@ -227,7 +251,7 @@ local function getChunkList()
         for z=0,127 do
             local char = file.read()
             if not char then error("invalid region file") end --If the file doesnt contain all 16384 chunks, error
-            if char == 0 then table.insert(z,{REG_X + x,REG_Z+z}) --If chunk isnt filled out yet, add to list
+            if char == 0 then table.insert(row,{REG_X + x,REG_Z+z}) --If chunk isnt filled out yet, add to list
             elseif char == 256 then --If variable char, continue eating bytes until you are at the next char
                 repeat
                     char = file.read()
@@ -235,7 +259,7 @@ local function getChunkList()
             end
         end
         local lb,ub,step = 1,#row,-1
-        if x%2 == 0 then lb,ub,step = #row,1,-1 end
+        if x%2 == 0 then lb,ub,step = #row,1,-1 end --switch order so the turtle follows a snake path through a region
         for i=lb,ub,step do
             table.insert(chunkList,row[i])
         end
@@ -260,4 +284,19 @@ local function synchronize_data()
             file.close()
         end
     end
+end
+
+local function sendData()
+    local biome = TURTLE:getBiome()
+    local _,__,message = ss_send(HOST,"data",{chunk=TURTLE:getChunk(),biome=biome},"data_success")
+end
+
+local function main()
+    synchronize_data()
+    while #CHUNK_LIST > 0 do
+        local chunk = table.remove(CHUNK_LIST)
+        parallel.waitForAny(function() TURTLE:moveToChunk(chunk[1],chunk[2]) end,function() while true do ss_receive() end end)
+        sendData()
+    end
+    synchronize_data()
 end
