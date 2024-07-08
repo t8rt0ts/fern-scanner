@@ -1,0 +1,45 @@
+local args = {...}
+
+local speakers = require("speakers")
+local json = require("json")
+local expect = require("cc.expect").expect
+
+expect(1,args[1],"string")
+
+local player = args[1]
+
+local path = "shared/ppos/"..player .. ".json"
+
+if not fs.exists(path) then error("Player has not been located yet!") end
+
+local pos = json(path):__totable()
+
+local function sendPos(player,dimension,x,y,z)
+    speakers("--DOXXER--")
+    speakers("-PLAYER-")
+    speakers(player)
+    speakers("-DIMENSION-")
+    speakers(dimension)
+    speakers("-X COORDINATE-")
+    speakers(x)
+    speakers("-Y COORDINATE-")
+    speakers(y)
+    speakers("-Z COORDINATE-")
+    speakers(z)
+    speakers("--DOXXER OUT--")
+end
+
+local maxEpoch,pos,dim = 0
+for j,w in pairs(pos) do
+    if w.epoch > maxEpoch then
+        maxEpoch = w.epoch
+        pos = w
+        dim=j
+    end
+end
+
+if pos and dim then
+    sendPos(player,dim,math.floor(pos.x),math.floor(pos.y),math.floor(pos.z))
+else
+    error("could not find player")
+end
