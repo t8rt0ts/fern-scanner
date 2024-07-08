@@ -11,11 +11,12 @@ do
         "redstoneIntegrator_31",
         "redstoneIntegrator_32",
         "redstoneIntegrator_33",
+        "redstoneIntegrator_34"
     }
     local wrapped_perips = {}
     for k,v in pairs(perips) do
         local p = assert(peripheral.wrap(v))
-        f[k] = function(side) p.setOutput(side,true);sleep(0.05);p.setOutput(side,false) end
+        f[k] = function(side) p.setOutput(side,true);sleep(0.1);p.setOutput(side,false) end
     end
 end
 
@@ -71,7 +72,12 @@ local SP = {
     ["6"] = function() f[10]("north") end,
     ["7"] = function() f[10]("west") end,
     ["8"] = function() f[10]("south") end,
-    ["9"] = function() f[10]("up") end
+    ["9"] = function() f[10]("up") end,
+    ["-PLAYER-"] = function() f[11]("down") end,
+    ["-DIMENSION-"] = function() f[11]("east") end,
+    ["-X COORDINATE-"] = function() f[11]("north") end,
+    ["-Y COORDINATE-"] = function() f[11]("west") end,
+    ["-Z COORDINATE-"] = function() f[11]("south") end
 }
 local mt = {}
 
